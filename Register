@@ -1,0 +1,148 @@
+import java.awt.CardLayout;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
+import java.io.*;
+import javax.swing.*;
+
+public class Register extends JPanel {
+
+    private JTextField userField = new JTextField(10);
+    private JPasswordField passField = new JPasswordField(10);
+    private JLabel status = new JLabel("Login or Register"); //status message display
+    private JLabel status2 = new JLabel("Welcome!");
+    private CardLayout card = new CardLayout();
+    private boolean loggedIn = false; //tracks login state
+    private String loggedInUser = "";
+
+    public Register() {
+
+        this.setLayout(card); 
+        this.setPreferredSize(new Dimension(400, 400));
+
+        JPanel login_page = new JPanel();
+        login_page.setLayout(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.anchor = GridBagConstraints.CENTER;
+        gbc.insets = new Insets(5,5,5,5);
+
+        JPanel new_page = new JPanel();
+        new_page.add(status2);
+
+        this.add(login_page, "login");
+        this.add(new_page, "new_page");
+
+        try {
+            File userFile = new File("userInfo.txt");
+            userFile.createNewFile();
+        } catch (IOException e) {
+            System.out.println("Could not create user file.");
+        }
+
+        status.setForeground(Color.red);
+        login_page.add(status, gbc);
+
+        gbc.gridwidth = 2;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.gridy++;
+
+        JPanel login_section = new JPanel();
+        login_section.add(new JLabel("Username:"));
+        login_section.add(userField); 
+        login_page.add(login_section, gbc);
+
+        JPanel passW = new JPanel();
+        passW.add(new JLabel("Password:"));
+        passW.add(passField);
+        gbc.gridy++;
+        login_page.add(passW, gbc);
+
+        JPanel button_panel = new JPanel();
+        JButton loginBtn = new JButton("Login");
+        JButton registerBtn = new JButton("Register");
+        button_panel.add(registerBtn);
+        button_panel.add(loginBtn);
+
+        gbc.gridy++;
+        login_page.add(button_panel, gbc);
+        gbc.fill = GridBagConstraints.NONE;
+
+        loginBtn.addActionListener(e -> {
+            String user = userField.getText().trim();
+            String pass = new String(passField.getPassword());
+            if (user.isEmpty() || pass.isEmpty()) {
+                status.setText("Fields cannot be empty.");
+            } else {
+                validateLogin(user, pass);
+                userField.setText("");
+                passField.setText("");
+            }
+        });
+
+        registerBtn.addActionListener(e -> {
+            String user = userField.getText().trim();
+            String pass = new String(passField.getPassword());
+
+            if (user.isEmpty() || pass.isEmpty()) {
+                status.setText("Fields cannot be empty.");
+            } else if (usernameExists(user)) {
+                status.setText("Username already taken, try a different name.");
+            } else {
+                saveUser(user, pass);
+                status.setText("User " + user + " registered!");
+            }
+        });
+
+        SwingUtilities.invokeLater(() -> card.show(this, "login"));
+    }
+
+    private boolean validateLogin(String username, String password) {
+        try (BufferedReader reader = new BufferedReader(new FileReader("userInfo.txt"))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String[] parts = line.split(",", 2);
+                if (parts.length == 2 && parts[0].equals(username) && parts[1].equals(password)) {
+                    loggedIn = true;
+                    loggedInUser = username;
+                    card.show(this, "new_page");
+                    status2.setText("Welcome " + username + "!!");
+                    return true;
+                }
+            }
+            status.setText("Username or password does not exist.");
+        } catch (IOException e) {
+            status.setText("Error reading user file.");
+        }
+        return false;
+    }
+
+    private boolean usernameExists(String username) {
+        try (BufferedReader reader = new BufferedReader(new FileReader("userInfo.txt"))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String[] parts = line.split(",", 2);
+                if (parts.length >= 1 && parts[0].equals(username)) return true;
+            }
+        } catch (IOException e) {
+            System.out.println("Error reading users file.");
+        }
+        return false;
+    }
+
+    private void saveUser(String username, String password) {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter("userInfo.txt", true))) {
+            writer.write(username + "," + password);
+            writer.newLine();
+        } catch (IOException e) {
+            System.out.println("Error writing to users file.");
+        }
+    }
+
+    public boolean isLoggedIn() { return loggedIn; }
+
+    public String getLoggedInUser() { return loggedInUser; }
+}
