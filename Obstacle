@@ -1,0 +1,36 @@
+import java.awt.Graphics;
+
+public class Obstacle extends GameObject {
+    private int speed = 5;
+    public boolean hasCollided = false;
+    private int flashFrames = 0; //"counter" (0 = normal, >0 = flash red)
+
+    public Obstacle(int x, int height) { //width = constant, y value determined by height
+        super(x, 360 - height, 45, height);
+    }
+
+    @Override
+    public void update() {
+        x -= speed;
+
+        if (flashFrames > 0) { //if currently flashing red
+            flashFrames--; //decrease until return to 0 (back to blue)
+        }    
+        
+    }
+    
+    public void flash() { //call when collision detected (in gamePanel)
+    flashFrames = 10; //flash for 10 frames
+    }
+
+    @Override
+    public void draw(Graphics g) {
+        if (flashFrames > 0) { 
+            g.setColor(java.awt.Color.RED);
+        } else {
+            g.setColor(java.awt.Color.BLUE);
+        }
+        
+        g.fillRect(x, y, width, height);
+    }
+}
