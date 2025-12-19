@@ -1,0 +1,12 @@
+import javax.swing.JFrame;
+
+public class JumpGame {
+    public static void main(String[] args) {
+        JFrame frame = new JFrame("Jump Over Obstacles");
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.add(new GamePanel()); //game panel constructor called here
+        frame.pack();
+        frame.setLocationRelativeTo(null);
+        frame.setVisible(true);
+    }
+}
