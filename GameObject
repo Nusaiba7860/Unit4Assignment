@@ -1,0 +1,25 @@
+import java.awt.Graphics;
+import java.awt.Rectangle;
+
+public abstract class GameObject { //cannot instantiate but can be inherited/extended so as to provide most basic blueprint
+    //location
+    protected int x;
+    protected int y;
+    //size
+    protected int width;
+    protected int height;
+
+    public GameObject(int x, int y, int w, int h) { //constructor
+        this.x = x;
+        this.y = y;
+        this.width = w;
+        this.height = h;
+    }
+
+    public abstract void update();
+    public abstract void draw(Graphics g);
+
+    public Rectangle getBounds() {
+        return new Rectangle(x, y, width, height);
+    }
+}
