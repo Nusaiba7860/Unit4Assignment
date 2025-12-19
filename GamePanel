@@ -1,0 +1,249 @@
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.*;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.Random;
+import java.io.*;
+
+public class GamePanel extends JPanel implements ActionListener, KeyListener, MouseListener {
+
+    private Player player;
+    private ArrayList<Obstacle> obstacles;
+    private static final int minObstacleSpacing = 80;
+
+    private Timer timer;
+    private Random rand;
+    private int score;
+    private int lives;
+    private boolean isGameOver = false;
+
+    private boolean showLogin = true;
+    private boolean showMenu = false;
+    public boolean gameRunning = false;
+
+    private JButton startButton;
+    private Register registerPanel;
+
+    private int scoreToBeat = 0;
+    private String currentUser = "";
+    private boolean newHighScore = false;
+
+    public GamePanel() {
+
+        setPreferredSize(new Dimension(800, 450));
+        setBackground(Color.WHITE);
+        setFocusable(true);
+        setLayout(null);
+
+        addKeyListener(this);
+        addMouseListener(this);
+
+        timer = new Timer(20, this);
+        rand = new Random();
+
+        registerPanel = new Register();
+        registerPanel.setBounds(200, 50, 400, 300);
+        this.add(registerPanel);
+
+        startButton = new JButton("Start!");
+        startButton.setBounds(330, 250, 150, 60);
+        startButton.setVisible(false);
+        startButton.addActionListener(e -> startGame());
+        this.add(startButton);
+
+        timer.start();
+    }
+
+    public void startGame() {
+        player = new Player(100, 283);
+        obstacles = new ArrayList<>();
+        score = 0;
+        lives = 3;
+        isGameOver = false;
+        showMenu = false;
+        gameRunning = true;
+        startButton.setVisible(false);
+        requestFocusInWindow();
+    }
+
+    private void spawnObstacle() {
+        int height = rand.nextInt(80) + 40;
+        obstacles.add(new Obstacle(800, height));
+    }
+
+    private int getLastObstacleX() {
+        if (obstacles == null || obstacles.isEmpty()) return -1;
+        return obstacles.get(obstacles.size() - 1).x;
+    }
+
+    private void loadHighScore() {
+        scoreToBeat = 0;
+        try (BufferedReader reader = new BufferedReader(new FileReader("scores.txt"))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String[] parts = line.split(",", 2);
+                if (parts[0].equals(currentUser)) {
+                    scoreToBeat = Integer.parseInt(parts[1]);
+                    return;
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("No score file yet.");
+        }
+    }
+
+    private void saveHighScore() {
+        boolean updated = false;
+        StringBuilder fileData = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(new FileReader("scores.txt"))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String[] parts = line.split(",", 2);
+                if (parts[0].equals(currentUser)) {
+                    int oldScore = Integer.parseInt(parts[1]);
+                    int best = Math.max(oldScore, score);
+                    fileData.append(currentUser).append(",").append(best).append("\n");
+                    updated = true;
+                } else {
+                    fileData.append(line).append("\n");
+                }
+            }
+        } catch (Exception ignored) {}
+        if (!updated) fileData.append(currentUser).append(",").append(score).append("\n");
+
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter("scores.txt"))) {
+            writer.write(fileData.toString());
+        } catch (Exception e) { System.out.println("Could not save score."); }
+
+        if (score > scoreToBeat) scoreToBeat = score;
+    }
+
+    @Override
+    public void actionPerformed(ActionEvent e) {
+
+        if (showLogin) {
+            if (registerPanel.isLoggedIn()) {
+                showLogin = false;
+                showMenu = true;
+                currentUser = registerPanel.getLoggedInUser();
+                loadHighScore();
+                registerPanel.setVisible(false);
+                startButton.setVisible(true);
+                repaint();
+                revalidate();
+            }
+            repaint();
+            return;
+        }
+
+        if (!gameRunning || isGameOver) return;
+
+        player.update();
+
+        if (rand.nextInt(50) == 0) {
+            if (getLastObstacleX() == -1 || getLastObstacleX() <= 800 - minObstacleSpacing) {
+                spawnObstacle();
+            }
+        }
+
+        Iterator<Obstacle> it = obstacles.iterator();
+        while (it.hasNext()) {
+            Obstacle o = it.next();
+            o.update();
+            if (player.getBounds().intersects(o.getBounds()) && !o.hasCollided) {
+                o.hasCollided = true;
+                score -= 10;
+                lives--;
+                o.flash();
+            }
+            if (o.x + o.width < 0) {
+                it.remove();
+                if (!o.hasCollided) score += 10;
+            }
+        }
+
+        if (score > scoreToBeat) { //updates new highscore
+            scoreToBeat = score;
+            newHighScore = true;
+        }
+
+        if (lives <= 0) {
+            isGameOver = true;
+            gameRunning = false;
+            saveHighScore();
+        }
+
+        repaint();
+    }
+
+    @Override
+    public void paintComponent(Graphics g) {
+        super.paintComponent(g);
+
+        if (showLogin) {
+            g.setFont(new Font("Arial", Font.BOLD, 24));
+            g.drawString("Please Log In!", 310, 40);
+            return;
+        }
+
+        if (showMenu) {
+            g.setColor(Color.BLUE);
+            g.fillRect(170, 135, 460, 190);
+            g.setColor(Color.BLACK);
+            g.drawRect(170, 135, 460, 190);
+            g.setColor(Color.WHITE);
+            g.setFont(new Font("Arial", Font.BOLD, 60));
+            g.drawString("LEAP GAME", 209, 220);
+            return;
+        }
+
+        g.setColor(Color.BLACK);
+        g.drawLine(0, 360, 800, 360);
+
+        if (player != null) player.draw(g);
+        if (obstacles != null) for (Obstacle o : obstacles) o.draw(g);
+
+        g.setFont(new Font("Arial", Font.BOLD, 18));
+        g.drawString("Score: " + score, 20, 30);
+        g.drawString("Lives: " + lives, 700, 30);
+        g.drawString("Score to Beat: " + scoreToBeat, 320, 30);
+
+        if (newHighScore) {
+            g.setColor(Color.GREEN);
+            g.drawString("NEW HIGH SCORE!", 310, 55);
+            g.setColor(Color.BLACK);
+            newHighScore = false;
+        }
+
+        if (isGameOver) {
+            g.setFont(new Font("Arial", Font.BOLD, 36));
+            g.setColor(Color.RED);
+            g.drawString("GAME OVER :(", 260, 200);
+            g.setFont(new Font("Arial", Font.PLAIN, 18));
+            g.drawString("Click to Restart!", 330, 235);
+        }
+    }
+
+    @Override
+    public void keyPressed(KeyEvent e) {
+        if (!gameRunning || isGameOver) return;
+        if (e.getKeyCode() == KeyEvent.VK_UP) player.jump();
+    }
+
+    @Override public void keyReleased(KeyEvent e) {}
+    @Override public void keyTyped(KeyEvent e) {}
+
+    @Override
+    public void mouseClicked(MouseEvent e) {
+        if (isGameOver) {
+            showMenu = true;
+            startButton.setVisible(true);
+            isGameOver = false;
+        }
+    }
+    @Override public void mousePressed(MouseEvent e) {}
+    @Override public void mouseReleased(MouseEvent e) {}
+    @Override public void mouseEntered(MouseEvent e) {}
+    @Override public void mouseExited(MouseEvent e) {}
+}
